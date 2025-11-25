@@ -1,0 +1,342 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>即時文字雲遊戲｜張學友的形容詞</title>
+  <meta name="description" content="說起張學友，你會想到甚麼形容詞？輸入後即時生成文字雲。支援多人即時同步（可選 Firebase）。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --card: #121417;
+      --accent: #1a73e8;
+      --text: #e6e9ef;
+      --muted: #9aa4b2;
+      --danger: #d7263d;
+      --ok: #12b981;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; padding: 0; font-family: 'Noto Sans TC', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "微軟正黑體", "PingFang TC", "Noto Sans TC", sans-serif;
+      background: radial-gradient(1200px 600px at 80% -20%, #0f1320 0%, var(--bg) 60%);
+      color: var(--text);
+    }
+    header { padding: 28px 20px 8px; text-align: center; }
+    h1 { margin: 0; font-size: 28px; letter-spacing: 0.4px; }
+    p.sub { margin: 8px 0 16px; color: var(--muted); font-size: 14px; }
+
+    .container { max-width: 980px; margin: 0 auto; padding: 10px 16px 32px; }
+    .card { background: linear-gradient(180deg, #141821 0%, var(--card) 100%); border: 1px solid #1f2432; border-radius: 16px; padding: 16px; }
+
+    .row { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 880px) { .row { grid-template-columns: 420px 1fr; } }
+
+    .prompt { padding: 14px; border-radius: 12px; background: #0e1117; border: 1px solid #1f2432; }
+    .prompt label { display: block; margin-bottom: 6px; font-weight: 700; }
+
+    .input-wrap { display: flex; gap: 10px; align-items: center; }
+    input[type=text] {
+      flex: 1; padding: 12px 14px; border-radius: 10px; border: 1px solid #2a3142; background: #0b0d14; color: var(--text);
+      outline: none; font-size: 15px; transition: border-color 0.2s ease;
+    }
+    input[type=text]:focus { border-color: var(--accent); }
+    .btn {
+      padding: 10px 14px; border-radius: 10px; border: 1px solid #2a3142; background: #0b0d14; color: var(--text);
+      cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s ease;
+    }
+    .btn.primary { background: linear-gradient(180deg, #1a73e8 0%, #0f62d0 100%); border-color: #0f62d0; color: white; }
+    .btn.secondary { background: #121622; }
+    .btn:hover { transform: translateY(-1px); filter: brightness(1.06); }
+
+    .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .badge { background: #0e1117; border: 1px solid #1f2432; border-radius: 10px; padding: 8px 10px; font-size: 12px; color: var(--muted); }
+    .badge strong { color: var(--text); }
+
+    .cloud-wrap { position: relative; min-height: 420px; background: #0e1117; border: 1px solid #1f2432; border-radius: 12px; overflow: hidden; }
+    #cloud { width: 100%; height: 100%; }
+
+    .top-list { background: #0e1117; border: 1px solid #1f2432; border-radius: 12px; padding: 12px; }
+    .top-list h3 { margin: 0 0 8px; font-size: 16px; }
+    .top-list ol { margin: 0; padding-left: 18px; }
+    .top-list li { padding: 4px 0; color: var(--muted); }
+    .top-list li strong { color: var(--text); }
+
+    footer { text-align: center; font-size: 12px; color: var(--muted); padding: 16px 0 26px; }
+    code.inline { background: #0e1117; border: 1px solid #1f2432; padding: 2px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>說起「張學友」，你會想到甚麼形容詞？</h1>
+    <p class="sub">輸入形容詞（可一次輸入多個，以空格、逗號或「、」分隔），按「確定」即可生成文字雲。<br/>可選：啟用 Firebase 進行多人即時同步。</p>
+  </header>
+
+  <div class="container">
+    <div class="row">
+      <div class="card">
+        <div class="prompt">
+          <label for="answer">請輸入你的答案：</label>
+          <div class="input-wrap">
+            <input id="answer" type="text" placeholder="例如：溫柔、專業、細膩、動人" autocomplete="off" />
+            <button class="btn primary" id="submitBtn">確定</button>
+            <button class="btn secondary" id="clearBtn" title="只清除本機資料（不會清除即時房間）">清空</button>
+          </div>
+          <div class="hint">提示：支援分隔符號 <code class="inline">空格</code>、<code class="inline">,</code>、<code class="inline">，</code>、<code class="inline">；</code>、<code class="inline">;</code>、<code class="inline">、</code>。</div>
+        </div>
+
+        <div class="stats">
+          <div class="badge">提交次數：<strong id="totalSubmits">0</strong></div>
+          <div class="badge">唯一詞彙：<strong id="uniqueWords">0</strong></div>
+        </div>
+
+        <div class="top-list" style="margin-top:12px;">
+          <h3>熱門形容詞 TOP 10</h3>
+          <ol id="topList"></ol>
+        </div>
+      </div>
+
+      <div class="card cloud-wrap">
+        <svg id="cloud" viewBox="0 0 640 420" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div>© 2025 文字雲遊戲 · 啟用多人即時同步：請填入 Firebase 設定（見下方註解）。</div>
+  </footer>
+
+  <!-- d3 + d3-cloud（文字雲排版） -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" integrity="sha512-1JIb2kRrTq4qYl1x0qU7Db8nCzPfj6Z8Tj7wC3Q+gDMuynpGQzx8X1R+9oS/3HfYbKQyVY1bH4lN0k+eFv9V3A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js" integrity="sha512-hlEw8dQ0z8oyr3WB2VNhbTWhvK04B2QHf7QJm5u2H3iU3mP69YbC0FvMo3pWJv6hPj1C3ZP7Sk3Dk5b9cAKfWQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <!-- 可選：Firebase（如需多人即時同步）-->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script>
+    /**
+     * 若要啟用多人即時同步：
+     * 1) 建立 Firebase 專案，啟用 Realtime Database（安全規則：可先設為測試模式）
+     * 2) 將以下常數替換為你的專案設定（Firebase Console > 專案設定 > 你的應用程式）
+     */
+    // const FIREBASE_CONFIG = {
+    //   apiKey: "YOUR_API_KEY",
+    //   authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    //   databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
+    //   projectId: "YOUR_PROJECT_ID",
+    //   storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    //   messagingSenderId: "YOUR_SENDER_ID",
+    //   appId: "YOUR_APP_ID"
+    // };
+
+    const ROOM_ID = 'jacky-cheung-adjectives'; // 可自行更改房間代號，以區分不同活動
+  </script>
+
+  <script>
+    // --- 公用工具 ---
+    const splitTokens = (input) => {
+      if (!input) return [];
+      return input
+        .replace(/[\n\r]+/g, ' ')
+        .split(/[\s,，；;、]+/)
+        .map(t => t.trim())
+        .filter(t => t.length > 0)
+        .map(t => t.replace(/[\u3000]/g, ' '));
+    };
+
+    // 進行基本正規化：統一半形/全形逗號與大小寫（主要是英數）
+    const normalize = (w) => {
+      const full2half = (str) => str.replace(/[\uff01-\uff5e]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0));
+      return full2half(w).toLowerCase();
+    };
+
+    // --- 狀態管理 ---
+    const state = {
+      counts: new Map(),
+      totalSubmits: 0,
+      realtime: false,
+      db: null,
+      wordsRef: null
+    };
+
+    // 本機儲存/載入
+    const saveLocal = () => {
+      const obj = Object.fromEntries(state.counts);
+      localStorage.setItem('wc_counts', JSON.stringify(obj));
+      localStorage.setItem('wc_total', String(state.totalSubmits));
+    };
+    const loadLocal = () => {
+      try {
+        const raw = localStorage.getItem('wc_counts');
+        const total = parseInt(localStorage.getItem('wc_total') || '0', 10);
+        if (raw) {
+          const obj = JSON.parse(raw);
+          state.counts = new Map(Object.entries(obj));
+        }
+        state.totalSubmits = isNaN(total) ? 0 : total;
+      } catch (e) {}
+    };
+
+    // --- 視覺化：文字雲 ---
+    const svg = d3.select('#cloud');
+    const width = 640, height = 420;
+
+    const renderCloud = () => {
+      const entries = Array.from(state.counts.entries()).map(([word, count]) => ({
+        text: word,
+        size: count
+      }));
+      if (entries.length === 0) {
+        svg.selectAll('*').remove();
+        svg.append('text')
+          .attr('x', width/2).attr('y', height/2)
+          .attr('text-anchor', 'middle').attr('fill', '#5b6a82')
+          .style('font-size', '16px')
+          .text('還沒有資料，先在左側輸入形容詞吧！');
+        return;
+      }
+
+      const max = d3.max(entries, d => d.size) || 1;
+      const min = d3.min(entries, d => d.size) || 1;
+      const fontScale = d3.scaleLinear().domain([min, max]).range([16, 90]);
+
+      // 使用 d3-cloud 生成布局
+      const layout = d3.layout.cloud()
+        .size([width, height])
+        .words(entries.map(d => ({ text: d.text, size: fontScale(d.size) })))
+        .padding(3)
+        .rotate(() => (Math.random() < 0.85 ? 0 : 90))
+        .spiral('archimedean')
+        .font('Noto Sans TC')
+        .fontSize(d => d.size)
+        .on('end', draw);
+
+      layout.start();
+
+      function draw(words) {
+        svg.selectAll('*').remove();
+        const g = svg.append('g').attr('transform', `translate(${width/2},${height/2})`);
+        g.selectAll('text')
+          .data(words)
+          .enter().append('text')
+          .style('font-size', d => `${d.size}px`)
+          .style('font-family', 'Noto Sans TC, system-ui')
+          .style('fill', d => d3.interpolateTurbo(Math.random()*0.8+0.1))
+          .attr('text-anchor', 'middle')
+          .attr('transform', d => `translate(${d.x},${d.y})rotate(${d.rotate})`)
+          .text(d => d.text)
+          .append('title')
+          .text(d => d.text);
+      }
+    };
+
+    // --- 排行榜與統計 ---
+    const renderStats = () => {
+      document.getElementById('totalSubmits').textContent = String(state.totalSubmits);
+      document.getElementById('uniqueWords').textContent = String(state.counts.size);
+
+      const top = Array.from(state.counts.entries())
+        .sort((a,b) => b[1]-a[1])
+        .slice(0, 10);
+      const ol = document.getElementById('topList');
+      ol.innerHTML = '';
+      top.forEach(([w,c]) => {
+        const li = document.createElement('li');
+        li.innerHTML = `<strong>${w}</strong> — ${c}`;
+        ol.appendChild(li);
+      });
+    };
+
+    // --- 提交處理 ---
+    const submit = (raw) => {
+      const tokens = splitTokens(raw);
+      if (tokens.length === 0) return;
+      state.totalSubmits += 1;
+
+      // 本地統計
+      tokens.forEach(w => {
+        const key = normalize(w);
+        const cur = state.counts.get(key) || 0;
+        state.counts.set(key, cur + 1);
+      });
+
+      // 若啟用即時，寫入資料庫（每個詞寫一筆）
+      if (state.realtime && state.wordsRef) {
+        tokens.forEach(w => {
+          state.wordsRef.push({ word: normalize(w), ts: Date.now() });
+        });
+      }
+
+      saveLocal();
+      renderCloud();
+      renderStats();
+    };
+
+    // --- 即時模式：Firebase ---
+    const tryInitRealtime = () => {
+      try {
+        // 判斷是否提供了 FIREBASE_CONFIG
+        if (typeof FIREBASE_CONFIG !== 'undefined' && FIREBASE_CONFIG && firebase) {
+          firebase.initializeApp(FIREBASE_CONFIG);
+          state.db = firebase.database();
+          state.wordsRef = state.db.ref(`rooms/${ROOM_ID}/words`);
+          state.realtime = true;
+
+          // 當他人提交新詞時，立即同步到本地並重新渲染
+          state.wordsRef.on('child_added', snap => {
+            const val = snap.val();
+            if (val && val.word) {
+              const cur = state.counts.get(val.word) || 0;
+              state.counts.set(val.word, cur + 1);
+              renderCloud();
+              renderStats();
+            }
+          });
+
+          console.log('[Realtime] Firebase 已啟用，房間：', ROOM_ID);
+        } else {
+          console.log('[Realtime] 未設定 Firebase，使用單機模式。');
+        }
+      } catch (e) {
+        console.warn('[Realtime] 初始化失敗，改為單機模式。', e);
+      }
+    };
+
+    // --- 清空本機資料 ---
+    const clearLocal = () => {
+      localStorage.removeItem('wc_counts');
+      localStorage.removeItem('wc_total');
+      state.counts = new Map();
+      state.totalSubmits = 0;
+      renderCloud();
+      renderStats();
+    };
+
+    // --- 事件綁定 ---
+    document.getElementById('submitBtn').addEventListener('click', () => {
+      const v = document.getElementById('answer').value.trim();
+      submit(v);
+      document.getElementById('answer').value = '';
+      document.getElementById('answer').focus();
+    });
+    document.getElementById('answer').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('submitBtn').click();
+      }
+    });
+    document.getElementById('clearBtn').addEventListener('click', clearLocal);
+
+    // --- 初始化 ---
+    loadLocal();
+    tryInitRealtime();
+    renderCloud();
+    renderStats();
+  </script>
+</body>
+</html>
