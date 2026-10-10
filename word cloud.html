@@ -1,154 +1,597 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>文字雲｜張學友的形容詞（首屏顯示＋每5分鐘更新）</title>
-  <meta name="description" content="載入即顯示文字雲；提交不即時更新；每5分鐘自動從 Firebase 讀取並重繪。" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>文字雲｜張學友的形容詞</title>
+  <meta name="description" content="說起張學友，你會想到甚麼形容詞？提交你的答案，一起建立文字雲。">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+
   <style>
-    :root { --bg:#ffffff; --card:#ffffff; --border:#e5e7eb; --accent:#1a73e8; --text:#0f172a; --muted:#475569; }
+    :root {
+      --bg: #ffffff;
+      --border: #e5e7eb;
+      --accent: #1a73e8;
+      --text: #0f172a;
+      --muted: #475569;
+      --danger: #dc2626;
+      --success: #16a34a;
+    }
+
     * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body { margin:0; padding:0; font-family:'Noto Sans TC', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "微軟正黑體", "PingFang TC", sans-serif; background:var(--bg); color:var(--text); }
-    header { padding:28px 20px 8px; text-align:center; }
-    h1 { margin:0; font-size:28px; letter-spacing:0.4px; }
-    p.sub { margin:8px 0 16px; color:var(--muted); font-size:14px; }
-    .container { max-width:980px; margin:0 auto; padding:10px 16px 32px; }
-    .card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
-    .row { display:grid; grid-template-columns:1fr; gap:12px; }
-    @media (min-width:880px) { .row { grid-template-columns:420px 1fr; } }
-    .prompt { padding:14px; border-radius:12px; background:#fff; border:1px dashed var(--border); }
-    .prompt label { display:block; margin-bottom:6px; font-weight:700; }
-    .input-wrap { display:flex; gap:10px; align-items:center; }
-    input[type=text]{ flex:1; padding:12px 14px; border-radius:10px; border:1px solid #cbd5e1; background:#fff; color:var(--text); outline:none; font-size:15px; transition:border-color .2s ease; }
-    input[type=text]:focus{ border-color:var(--accent); }
-    .btn { padding:10px 14px; border-radius:10px; border:1px solid #cbd5e1; background:#f8fafc; color:var(--text); cursor:pointer; font-size:14px; font-weight:600; transition:all .2s ease; }
-    .btn.primary { background:linear-gradient(180deg, #1a73e8 0%, #0f62d0 100%); border-color:#0f62d0; color:#fff; }
-    .btn.secondary { background:#fff; }
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
-    .hint{ font-size:12px; color:var(--muted); margin-top:8px; }
-    .stats{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
-    .badge{ background:#fff; border:1px solid var(--border); border-radius:10px; padding:8px 10px; font-size:12px; color:var(--muted); }
-    .badge strong{ color:var(--text); }
-    .cloud-wrap{ position:relative; min-height:420px; background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden; }
-    #cloud{ width:100%; height:100%; }
-    .top-list { background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px; }
-    .top-list h3 { margin:0 0 8px; font-size:16px; }
-    .top-list ol{ margin:0; padding-left:18px; }
-    .top-list li{ padding:4px 0; color:var(--muted); }
-    .top-list li strong{ color:var(--text); }
-    footer{ text-align:center; font-size:12px; color:var(--muted); padding:16px 0 26px; }
-    code.inline{ background:#f1f5f9; border:1px solid var(--border); padding:2px 6px; border-radius:6px; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Noto Sans TC', system-ui, -apple-system, 'Segoe UI', Roboto, '微軟正黑體', 'PingFang TC', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      padding: 32px 20px 8px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(22px, 4vw, 30px);
+    }
+
+    .sub {
+      margin: 10px 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .container {
+      max-width: 1020px;
+      margin: 0 auto;
+      padding: 0 16px 36px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    @media (min-width: 900px) {
+      .row {
+        grid-template-columns: 400px 1fr;
+      }
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+    }
+
+    .prompt {
+      padding: 16px;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .input-wrap {
+      display: flex;
+      gap: 10px;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      padding: 12px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+    }
+
+    .btn {
+      padding: 11px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      background: #f8fafc;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      background: linear-gradient(180deg, #1a73e8, #0f62d0);
+      border-color: #0f62d0;
+      color: #fff;
+    }
+
+    .btn:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    .hint {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .message {
+      margin-top: 10px;
+      min-height: 20px;
+      font-size: 13px;
+    }
+
+    .message.error { color: var(--danger); }
+    .message.success { color: var(--success); }
+
+    .toolbar {
+      margin-top: 12px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .badge {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .badge strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 18px;
+      color: var(--text);
+    }
+
+    .top-list {
+      margin-top: 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .top-list h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .top-list ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .top-list li {
+      padding: 4px 0;
+      color: var(--muted);
+    }
+
+    .top-list li strong {
+      color: var(--text);
+    }
+
+    .cloud-card {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cloud-wrap {
+      flex: 1;
+      min-height: 440px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    #cloud {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    footer {
+      padding: 18px 16px 30px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
   </style>
-  <!-- ✅ 改為使用 defer 的全域腳本（可靠）：先載 d3 / d3-cloud，再執行下方 App 腳本 -->
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-cloud/1.2.5/d3.layout.cloud.min.js" defer></script>
 </head>
+
 <body>
   <header>
     <h1>說起「張學友」，你會想到甚麼形容詞？</h1>
-    <p class="sub">載入即顯示文字雲；提交後不即時更新；每 5 分鐘自動更新一次。</p>
+    <p class="sub">輸入你的答案，一起建立文字雲。文字雲每 5 分鐘更新一次。</p>
   </header>
-  <div class="container">
+
+  <main class="container">
     <div class="row">
-      <div class="card">
+      <section class="card">
         <div class="prompt">
-          <label for="answer">請輸入你的答案：</label>
+          <label for="answer">請輸入形容詞</label>
+
           <div class="input-wrap">
-            <input id="answer" type="text" placeholder="例如：溫柔、專業、細膩、動人" autocomplete="off"/>
+            <input
+              id="answer"
+              type="text"
+              placeholder="例如：溫柔、專業、細膩、動人"
+              maxlength="200"
+              autocomplete="off"
+            >
             <button class="btn primary" id="submitBtn">確定</button>
-            <button class="btn secondary" id="clearBtn" title="只清除本機資料（不會清除即時房間）">清空</button>
           </div>
-          <div class="hint">提示：支援分隔符號 <code class="inline">空格</code>、<code class="inline">,</code>、<code class="inline">，</code>、<code class="inline">；</code>、<code class="inline">;</code>、<code class="inline">、</code>。</div>
-          <button class="btn secondary" id="refreshBtn" style="margin-top:10px">手動更新文字雲</button>
+
+          <p class="hint">
+            可用空格、逗號、頓號或分號分隔多個詞；每次最多 10 個詞，每個詞最多 20 字。
+          </p>
+
+          <div class="message" id="message" role="status" aria-live="polite"></div>
         </div>
+
         <div class="stats">
-          <div class="badge">提交次數：<strong id="totalSubmits">0</strong></div>
-          <div class="badge">唯一詞彙：<strong id="uniqueWords">0</strong></div>
+          <div class="badge">
+            雲端詞彙總數
+            <strong id="totalWords">0</strong>
+          </div>
+
+          <div class="badge">
+            唯一詞彙
+            <strong id="uniqueWords">0</strong>
+          </div>
         </div>
-        <div class="top-list" style="margin-top:12px;">
-          <h3>熱門形容詞 TOP 10</h3>
+
+        <div class="top-list">
+          <h2>熱門形容詞 TOP 10</h2>
           <ol id="topList"></ol>
         </div>
-      </div>
-      <div class="card cloud-wrap">
-        <svg id="cloud" viewBox="0 0 640 420" preserveAspectRatio="xMidYMid meet"></svg>
-      </div>
+      </section>
+
+      <section class="card cloud-card">
+        <div class="toolbar">
+          <button class="btn" id="refreshBtn">手動更新文字雲</button>
+        </div>
+
+        <div class="cloud-wrap">
+          <svg
+            id="cloud"
+            viewBox="0 0 640 440"
+            preserveAspectRatio="xMidYMid meet"
+            role="img"
+            aria-label="張學友形容詞文字雲"
+          ></svg>
+        </div>
+      </section>
     </div>
-  </div>
+  </main>
+
   <footer>
-    <div>© 2025 文字雲遊戲 · 非即時渲染 · 每5分鐘更新 · Firebase v12</div>
+    © 2025 文字雲遊戲 · Firebase Realtime Database
   </footer>
 
-  <!-- App 腳本（依賴上面的 d3 / d3-cloud 已 defer 載入，DOM Ready 後再執行） -->
   <script>
-    const ROOM_ID = 'jacky-cheung-adjectives';
+    'use strict';
 
-    const splitTokens = (input) => {
+    const MAX_WORDS_PER_SUBMIT = 10;
+    const MAX_WORD_LENGTH = 20;
+    const MAX_DISPLAY_WORDS = 120;
+    const RENDER_DELAY = 300;
+
+    const state = {
+      counts: new Map(),
+      pendingWrites: new Set(),
+      submitting: false
+    };
+
+    const answerInput = document.getElementById('answer');
+    const submitBtn = document.getElementById('submitBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const messageEl = document.getElementById('message');
+    const totalWordsEl = document.getElementById('totalWords');
+    const uniqueWordsEl = document.getElementById('uniqueWords');
+    const topListEl = document.getElementById('topList');
+    const svgEl = document.getElementById('cloud');
+
+    const WIDTH = 640;
+    const HEIGHT = 440;
+
+    function showMessage(text, type = '') {
+      messageEl.textContent = text;
+      messageEl.className = `message ${type}`;
+    }
+
+    function splitTokens(input) {
       if (!input) return [];
-      return input.replace(/[\n\r]+/g,' ').split(/[\s,，；;、]+/).map(t=>t.trim()).filter(t=>t.length>0).map(t=>t.replace(/\u3000/g,' '));
-    };
-    const normalize = (w) => { const full2half=(s)=>s.replace(/[\uff01-\uff5e]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0xFEE0)); return full2half(w).toLowerCase(); };
 
-    window.state = { counts:new Map(), totalSubmits:0, realtime:false, db:null, wordsRef:null };
+      return input
+        .replace(/[\n\r]+/g, ' ')
+        .split(/[\s,，；;、]+/)
+        .map(token => token.trim())
+        .filter(Boolean);
+    }
 
-    const saveLocal = () => { const obj=Object.fromEntries(state.counts); localStorage.setItem('wc_counts', JSON.stringify(obj)); localStorage.setItem('wc_total', String(state.totalSubmits)); };
-    const loadLocal = () => { try{ const raw=localStorage.getItem('wc_counts'); const total=parseInt(localStorage.getItem('wc_total')||'0',10); if(raw){ const obj=JSON.parse(raw); state.counts = new Map(Object.entries(obj)); } state.totalSubmits=isNaN(total)?0:total; }catch(e){} };
+    function normalizeWord(word) {
+      return word
+        .replace(/[\uff01-\uff5e]/g, char =>
+          String.fromCharCode(char.charCodeAt(0) - 0xFEE0)
+        )
+        .toLowerCase()
+        .trim();
+    }
 
-    const width=640, height=420; const svgEl=document.getElementById('cloud');
-    let renderQueued=false;
-    function scheduleRender(){ if(renderQueued) return; renderQueued=true; setTimeout(()=>{ renderQueued=false; window.renderCloud(); },300); }
+    function isValidWord(word) {
+      return (
+        word.length > 0 &&
+        word.length <= MAX_WORD_LENGTH &&
+        !/[<>"/'\\]/.test(word)
+      );
+    }
 
-    window.renderCloud = () => {
-      const d3 = window.d3; // 來自全域
-      const current=Array.from(state.counts.entries()).map(([word,count])=>({text:word,size:count}));
-      const sel=d3.select(svgEl); sel.selectAll('*').remove();
-      if(current.length===0){ d3.select(svgEl).append('text').attr('x',width/2).attr('y',height/2).attr('text-anchor','middle').attr('fill','#94a3b8').style('font-size','16px').text('還沒有資料，先在左側輸入形容詞吧！'); return; }
-      const max=d3.max(current,d=>d.size)||1, min=d3.min(current,d=>d.size)||1; const fontScale=d3.scaleLinear().domain([min,max]).range([16,90]);
-      const layout=d3.layout.cloud().size([width,height]).words(current.map(d=>({text:d.text,size:fontScale(d.size)}))).padding(3).rotate(()=> (Math.random()<0.85?0:90)).spiral('archimedean').font('Noto Sans TC').fontSize(d=>d.size).on('end',(words)=>{
-        const g=d3.select(svgEl).append('g').attr('transform',`translate(${width/2},${height/2})`);
-        g.selectAll('text').data(words).enter().append('text').style('font-size',d=>`${d.size}px`).style('font-family','Noto Sans TC, system-ui').style('fill',()=> d3.interpolateTurbo(Math.random()*0.8+0.1)).attr('text-anchor','middle').attr('transform',d=>`translate(${d.x},${d.y})rotate(${d.rotate})`).text(d=>d.text).append('title').text(d=>d.text);
+    function hashString(text) {
+      let hash = 0;
+
+      for (let i = 0; i < text.length; i++) {
+        hash = (hash << 5) - hash + text.charCodeAt(i);
+        hash |= 0;
+      }
+
+      return Math.abs(hash);
+    }
+
+    function colorForWord(word) {
+      const hue = hashString(word) % 360;
+      return `hsl(${hue}, 70%, 40%)`;
+    }
+
+    let renderQueued = false;
+
+    function scheduleRender() {
+      if (renderQueued) return;
+
+      renderQueued = true;
+
+      setTimeout(() => {
+        renderQueued = false;
+        renderCloud();
+      }, RENDER_DELAY);
+    }
+
+    function renderCloud() {
+      if (!window.d3 || !window.d3.layout || !window.d3.layout.cloud) {
+        setTimeout(renderCloud, 100);
+        return;
+      }
+
+      const words = Array.from(state.counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, MAX_DISPLAY_WORDS)
+        .map(([word, count]) => ({ text: word, count }));
+
+      d3.select(svgEl).selectAll('*').remove();
+
+      if (words.length === 0) {
+        d3.select(svgEl)
+          .append('text')
+          .attr('x', WIDTH / 2)
+          .attr('y', HEIGHT / 2)
+          .attr('text-anchor', 'middle')
+          .attr('fill', '#94a3b8')
+          .style('font-size', '16px')
+          .text('還沒有資料，請輸入形容詞！');
+        return;
+      }
+
+      const maxCount = d3.max(words, item => item.count) || 1;
+      const minCount = d3.min(words, item => item.count) || 1;
+
+      const fontScale = d3
+        .scaleLinear()
+        .domain([minCount, maxCount])
+        .range([16, 86]);
+
+      d3.layout.cloud()
+        .size([WIDTH, HEIGHT])
+        .words(words.map(item => ({
+          text: item.text,
+          count: item.count,
+          size: fontScale(item.count)
+        })))
+        .padding(3)
+        .rotate(() => (Math.random() < 0.88 ? 0 : 90))
+        .spiral('archimedean')
+        .font('Noto Sans TC')
+        .fontSize(item => item.size)
+        .on('end', laidOutWords => {
+          const group = d3
+            .select(svgEl)
+            .append('g')
+            .attr('transform', `translate(${WIDTH / 2}, ${HEIGHT / 2})`);
+
+          group
+            .selectAll('text')
+            .data(laidOutWords)
+            .enter()
+            .append('text')
+            .style('font-size', item => `${item.size}px`)
+            .style('font-family', "'Noto Sans TC', system-ui")
+            .style('fill', item => colorForWord(item.text))
+            .attr('text-anchor', 'middle')
+            .attr('transform', item =>
+              `translate(${item.x}, ${item.y}) rotate(${item.rotate})`
+            )
+            .text(item => item.text)
+            .append('title')
+            .text(item => `${item.text}：${item.count} 次`);
+        })
+        .start();
+    }
+
+    function renderStats() {
+      const entries = Array.from(state.counts.entries());
+      const total = entries.reduce((sum, [, count]) => sum + count, 0);
+
+      totalWordsEl.textContent = String(total);
+      uniqueWordsEl.textContent = String(state.counts.size);
+
+      topListEl.replaceChildren();
+
+      entries
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .forEach(([word, count]) => {
+          const listItem = document.createElement('li');
+          const wordEl = document.createElement('strong');
+
+          wordEl.textContent = word;
+          listItem.append(wordEl, document.createTextNode(` — ${count}`));
+          topListEl.append(listItem);
+        });
+    }
+
+    async function submitAnswer() {
+      if (state.submitting) return;
+
+      const rawInput = answerInput.value.trim();
+
+      if (!rawInput) {
+        showMessage('請先輸入至少一個形容詞。', 'error');
+        answerInput.focus();
+        return;
+      }
+
+      const tokens = splitTokens(rawInput);
+
+      if (tokens.length === 0) {
+        showMessage('請輸入有效的形容詞。', 'error');
+        return;
+      }
+
+      if (tokens.length > MAX_WORDS_PER_SUBMIT) {
+        showMessage(`每次最多提交 ${MAX_WORDS_PER_SUBMIT} 個詞。`, 'error');
+        return;
+      }
+
+      const validWords = [];
+      let invalidCount = 0;
+
+      tokens.forEach(originalWord => {
+        const word = normalizeWord(originalWord);
+
+        if (isValidWord(word)) {
+          validWords.push(word);
+        } else {
+          invalidCount += 1;
+        }
       });
-      layout.start();
-    };
-    window.requestCloudRender = () => scheduleRender();
 
-    window.renderStats = () => {
-      document.getElementById('totalSubmits').textContent=String(state.totalSubmits);
-      document.getElementById('uniqueWords').textContent=String(state.counts.size);
-      const top=Array.from(state.counts.entries()).sort((a,b)=>b[1]-a[1]).slice(0,10); const ol=document.getElementById('topList'); ol.innerHTML='';
-      top.forEach(([w,c])=>{ const li=document.createElement('li'); li.innerHTML=`<strong>${w}</strong> — ${c}`; ol.appendChild(li); });
-    };
+      if (validWords.length === 0) {
+        showMessage('沒有可提交的有效詞彙。', 'error');
+        return;
+      }
 
-    const DEFAULT_BOOTSTRAP = { '唱歌':5, '歌神':8 };
+      state.submitting = true;
+      submitBtn.disabled = true;
+      showMessage('正在提交…');
 
-    const submit = (raw) => {
-      const tokens=splitTokens(raw); if(tokens.length===0) return; state.totalSubmits += 1; tokens.forEach(w=>{ const key=normalize(w); const cur=state.counts.get(key)||0; state.counts.set(key,cur+1); });
-      if (state.realtime && state.wordsRef && typeof window.firebasePushWord==='function'){ tokens.forEach(w=> window.firebasePushWord(normalize(w))); }
-      saveLocal(); requestCloudRender(); renderStats(); if (typeof window.lazyLoadAnalytics==='function') window.lazyLoadAnalytics();
-    };
+      const results = await Promise.all(
+        validWords.map(word => window.firebasePushWord(word))
+      );
 
-    const clearLocal = () => { localStorage.removeItem('wc_counts'); localStorage.removeItem('wc_total'); state.counts=new Map(); state.totalSubmits=0; requestCloudRender(); renderStats(); };
+      const successCount = results.filter(Boolean).length;
+      const failureCount = results.length - successCount;
 
-    document.addEventListener('DOMContentLoaded', ()=>{
-      document.getElementById('submitBtn').addEventListener('click', ()=>{ const v=document.getElementById('answer').value.trim(); submit(v); document.getElementById('answer').value=''; document.getElementById('answer').focus(); });
-      document.getElementById('answer').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('submitBtn').click(); }});
-      document.getElementById('clearBtn').addEventListener('click', clearLocal);
-      document.getElementById('refreshBtn').addEventListener('click', ()=>{ if (typeof window.loadOnceFromFirebase==='function') window.loadOnceFromFirebase(); });
+      validWords.forEach(word => {
+        state.counts.set(word, (state.counts.get(word) || 0) + 1);
+        state.pendingWrites.add(word);
+      });
 
-      loadLocal();
-      if (state.counts.size===0){ Object.entries(DEFAULT_BOOTSTRAP).forEach(([w,c])=> state.counts.set(w,c)); }
-      renderCloud(); renderStats();
+      renderStats();
+      scheduleRender();
+
+      if (failureCount === 0) {
+        showMessage(`已成功提交 ${successCount} 個形容詞。`, 'success');
+      } else if (successCount === 0) {
+        showMessage('提交失敗，請檢查網路後稍後再試。', 'error');
+      } else {
+        showMessage(
+          `成功提交 ${successCount} 個，另有 ${failureCount} 個失敗。`,
+          'error'
+        );
+      }
+
+      if (invalidCount > 0) {
+        showMessage(
+          `有 ${invalidCount} 個詞因格式或長度不符合而未提交。`,
+          'error'
+        );
+      }
+
+      answerInput.value = '';
+      answerInput.focus();
+
+      state.submitting = false;
+      submitBtn.disabled = false;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderStats();
+      renderCloud();
+
+      submitBtn.addEventListener('click', submitAnswer);
+
+      answerInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          submitAnswer();
+        }
+      });
+
+      refreshBtn.addEventListener('click', () => {
+        if (typeof window.loadOnceFromFirebase === 'function') {
+          showMessage('正在更新文字雲…');
+          window.loadOnceFromFirebase();
+        }
+      });
     });
   </script>
 
-  <!-- Firebase v12 模組：非即時渲染；首次在 DOM Ready 後抓取；每5分鐘自動更新 -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-    import { getDatabase, ref, push, get } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js';
+    import {
+      getDatabase,
+      ref,
+      push,
+      get
+    } from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyDO429O2JfwCLLveTPsg9eR2NZKdOKjPdA",
@@ -160,49 +603,95 @@
       appId: "1:585386416126:web:5eda0b9228daad218dd2af",
       measurementId: "G-S8KMDFZ7NP"
     };
+
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    window.lazyLoadAnalytics = async () => {
-      if (window.__analyticsLoaded) return; window.__analyticsLoaded = true;
-      try { const { getAnalytics } = await import('https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js'); getAnalytics(app); } catch(e){}
+    const ROOM_ID = 'jacky-cheung-adjectives';
+    const wordsRef = ref(db, `rooms/${ROOM_ID}/words`);
+
+    window.firebasePushWord = async function (normalizedWord) {
+      try {
+        await push(wordsRef, {
+          word: normalizedWord,
+          ts: Date.now()
+        });
+
+        return true;
+      } catch (error) {
+        console.warn('Firebase write failed:', error);
+        return false;
+      }
     };
 
-    const roomId = typeof ROOM_ID !== 'undefined' ? ROOM_ID : 'jacky-cheung-adjectives';
-    const wordsRef = ref(db, `rooms/${roomId}/words`);
-    window.state.realtime = true; window.state.db = db; window.state.wordsRef = wordsRef;
+    function mergePendingWrites(countsMap) {
+      state.pendingWrites.forEach(word => {
+        countsMap.set(word, (countsMap.get(word) || 0) + 1);
+      });
 
-    async function loadOnceFromFirebase(){
-      try{
-        const snap = await get(wordsRef); const raw = snap.val() || {};
-        const temp = new Map();
-        Object.values(raw).forEach(rec=>{ if(rec && rec.word){ const w=rec.word; temp.set(w,(temp.get(w)||0)+1); } });
-        if (temp.size===0 && window.state.counts.size===0 && typeof DEFAULT_BOOTSTRAP!=='undefined'){
-          Object.entries(DEFAULT_BOOTSTRAP).forEach(([w,c])=> temp.set(w,c));
-        }
-        window.state.counts = temp; window.requestCloudRender(); window.renderStats();
-      }catch(e){
-        console.warn('Firebase get() error, use defaults/local:', e);
-        if (window.state.counts.size===0 && typeof DEFAULT_BOOTSTRAP!=='undefined'){
-          Object.entries(DEFAULT_BOOTSTRAP).forEach(([w,c])=> window.state.counts.set(w,c));
-        }
-        window.requestCloudRender(); window.renderStats();
-      }
+      return countsMap;
     }
-    window.loadOnceFromFirebase = loadOnceFromFirebase;
 
-    // ✅ DOM Ready 後再首次抓取（避免首屏空白）
+    window.loadOnceFromFirebase = async function () {
+      try {
+        const snapshot = await get(wordsRef);
+        const records = snapshot.val() || {};
+
+        const cloudCounts = new Map();
+
+        Object.values(records).forEach(record => {
+          if (
+            record &&
+            typeof record.word === 'string' &&
+            record.word.length > 0 &&
+            record.word.length <= 20
+          ) {
+            const word = record.word;
+            cloudCounts.set(word, (cloudCounts.get(word) || 0) + 1);
+          }
+        });
+
+        if (cloudCounts.size === 0) {
+          if (state.counts.size > 0) {
+            showMessage('雲端暫時沒有資料，已保留目前畫面。', 'error');
+          } else {
+            showMessage('雲端暫時沒有資料。');
+          }
+
+          renderStats();
+          scheduleRender();
+          return;
+        }
+
+        state.counts = mergePendingWrites(cloudCounts);
+        state.pendingWrites.clear();
+
+        renderStats();
+        scheduleRender();
+        showMessage('文字雲已更新。', 'success');
+      } catch (error) {
+        console.warn('Firebase read failed:', error);
+        showMessage('無法讀取雲端資料，已保留目前畫面。', 'error');
+      }
+    };
+
     document.addEventListener('DOMContentLoaded', () => {
-      loadOnceFromFirebase();
+      window.loadOnceFromFirebase();
     });
 
-    // ⏱ 每 5 分鐘自動更新（可見時才拉）
-    const FIVE_MIN = 300000;
-    setInterval(()=>{ if(document.visibilityState==='visible'){ loadOnceFromFirebase(); } }, FIVE_MIN);
-    document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible'){ loadOnceFromFirebase(); } });
+    const FIVE_MINUTES = 5 * 60 * 1000;
 
-    // 保留寫入：提交時 push，但不即時重繪
-    window.firebasePushWord = (normalizedWord) => { try { push(wordsRef, { word: normalizedWord, ts: Date.now() }); } catch(e){} };
+    setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        window.loadOnceFromFirebase();
+      }
+    }, FIVE_MINUTES);
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        window.loadOnceFromFirebase();
+      }
+    });
   </script>
 </body>
 </html>
